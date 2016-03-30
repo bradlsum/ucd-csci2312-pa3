@@ -7,6 +7,7 @@
 #include "Point.h"
 #include "Cluster.h"
 #include "Exceptions.h"
+#include <assert.h>
 
 namespace Clustering {
 	unsigned int Cluster::__idGenerator = 0;
@@ -28,14 +29,10 @@ namespace Clustering {
 	}*/
 
 	// Centroid class
-	Cluster::Centroid::Centroid(unsigned int d, const Cluster & c) : __c(c), __p(d)
-	{
+	Cluster::Centroid::Centroid(unsigned int d, const Cluster &c) : __c(c), __p(d) { // needs ref to cluster
 		__dimensions = d;
-
 		if (__c.__size == 0) {
-
 			__valid = false;
-
 			toInfinity();
 		}
 	}
@@ -63,31 +60,33 @@ namespace Clustering {
 	}
 
 	// Centroid functions
-	void Cluster::Centroid::compute()
-	{
-		double avg;
+	void Cluster::Centroid::compute() {
 
-		if (__c.__size > 0) {
-			for (unsigned int d = 0; d < __dimensions; ++d) {
-				avg = 0;
+		LNodePtr temp = __c.__points;
 
-				for (unsigned int i = 0; i < __c.__size; ++i) {
-					avg += (__c[i])[d];
-				}
-
-				__p[d] = avg / __c.__size;
-
-			}
-		}
-		else {
+		if (__c.__points == nullptr) {
 			toInfinity();
+			return;
 		}
 
-		__valid = true;
+		double sum = 0;
+		int i = 0;
+		while( i < __dimensions) {
+			for (int j = 0; j < __c.__size; ++j) {
+				if(temp != nullptr){
+					sum += temp->point[i];
+					temp = temp->next;
+				}
+			}
+			__p.setValue(i, sum / (__c.getSize()));
+			sum = 0;
+			temp = __c.__points;
+			i++;
+		}
+		setValid(true);
 	}
 
-	bool Cluster::Centroid::equal(const Point & p) const
-	{
+	bool Cluster::Centroid::equal(const Point &p) const {
 		bool eq = true;
 		for (unsigned int i = 0; i < __dimensions; ++i) {
 			if (__p[i] != p[i]) {
@@ -99,11 +98,11 @@ namespace Clustering {
 		return eq;
 	}
 
-	void Cluster::Centroid::toInfinity()
-	{
-		for (unsigned int i = 0; i < __dimensions; ++i) {
+	void Cluster::Centroid::toInfinity(){
+		for(int i = 0; i < __p.getDims(); ++i){
 			__p[i] = std::numeric_limits<double>::max();
 		}
+		setValid(true);
 	}
 
 	Cluster::Cluster(unsigned int d) : centroid(d, *this) {
@@ -114,19 +113,55 @@ namespace Clustering {
 		++__idGenerator;
 	}
 
-	void Cluster::pickCentroids(unsigned int k, Point ** pointArray)
-	{
+	void Cluster::pickCentroids(unsigned int k, Point **pointArray) { // pick k initial centroids
 		if (k >= __size) {
 			for (unsigned int i = 0; i < __size; ++i) {
 				*(pointArray[i]) = (*this)[i];
 			}
 			if (k > __size) {
 				for (unsigned int i = __size; i < k; ++i) {
-
+					//pointArray[i] = new Point(__dimensionality);
 					for (unsigned int d = 0; d < __dimensionality; ++d) {
 						pointArray[i]->setValue(d, std::numeric_limits<double>::max());
-
+						//(pointArray[i])[d] = std::numeric_limits<double>::max();
 					}
+				}
+			}
+		}
+		else {
+			if (k > 100) {
+				for (unsigned int i = 0; i < k; ++i) {
+					*(pointArray[i]) = (*this)[i];
+				}
+			}
+			else {
+				*(pointArray[0]) = __points->point;
+				// a is index of point k
+				// b is index of cluster
+				// c is index of distance between pointArray and next point
+				for (unsigned int a = 1; a < k; ++a) {
+					double avgD = 0;
+					unsigned int furIndx = 0;
+					for (unsigned int b = 0; b < __size; ++b) {
+						double nextD = 0;
+						bool used = false;
+
+						// Average distance between current point and pointArray
+						for (unsigned int c = 0; c < a; ++c) {
+							nextD += ((*this)[b]).distanceTo(*(pointArray[c]));
+							if ((*this)[b] == *(pointArray[c]))
+								used = true;
+						}
+						nextD /= a;
+
+						// New furthest point
+						if (nextD > avgD && !used) {
+							avgD = nextD;
+							furIndx = b;
+						}
+					}
+					*(pointArray[a]) = (*this)[furIndx];
+					//pointArray[a] = new Point((*this)[furIndx]);
 				}
 			}
 		}
@@ -160,28 +195,27 @@ namespace Clustering {
 		}
 	}
 
-	Cluster &Cluster::operator=(const Cluster &origin) {
-		if (__size > 0) {
-			LNodePtr destroy;
-			LNodePtr cursor = __points;
-
-			while (cursor != nullptr) {
-				destroy = cursor;
-				cursor = cursor->next;
-
-				delete destroy;
-			}
-			__size = 0;
+	void Cluster::__del(){
+		while(__points != nullptr){
+			LNodePtr temp = __points->next;
+			delete __points;
+			__points = temp;
+			__size--;
 		}
+		assert(__size==0);
+	}
 
-		for (int i = 0; i < origin.getSize(); ++i)
+	Cluster &Cluster::operator=(const Cluster &C) {
+		if(this->getDimensionality() != C.getDimensionality())
+			throw DimensionalityMismatchEx(this->getDimensionality(),C.getDimensionality());
 		{
-			add(origin[i]);
+			__del();
+			__dimensionality= C.__dimensionality;
+			__size = C.__size;
+			__cpy(C.__points);
+			__id = C.__id;
+			centroid.compute();
 		}
-
-		__id = origin.__id;
-		centroid.compute();
-
 		return *this;
 	}
 
@@ -255,20 +289,15 @@ namespace Clustering {
 			if (iBef == __points)
 			{
 				LNodePtr newNode;
-
 				newNode = new LNode(*Newp, __points);
-
 				__points = newNode;
 				++__size;
 			}
 			else
 			{
 				LNodePtr newNode;
-
 				newNode = new LNode(*Newp, iBef);
-
 				Npre->next = newNode;
-
 				++__size;
 			}
 		}
@@ -332,72 +361,75 @@ namespace Clustering {
 			return current->point;
 	}
 
-	Cluster &Cluster::operator+=(const Point &p) {
-		add(p);
-
+	Cluster &Cluster::operator+=(const Point &P1) {
+		if(__dimensionality != P1.getDims()){
+			throw DimensionalityMismatchEx(__dimensionality,P1.getDims());
+		}
+		this->add(P1);
 		return *this;
 	}
 
-	Cluster &Cluster::operator-=(const Point &p) {
-		remove(p);
-
+	Cluster &Cluster::operator-=(const Point &P1) {
+		if(__dimensionality != P1.getDims()){
+			throw DimensionalityMismatchEx(__dimensionality,P1.getDims());
+		}
+		this->remove(P1);
 		return *this;
 	}
 
-	Cluster &Cluster::operator+=(const Cluster &arg_Cluster)
+	Cluster &Cluster::operator+=(const Cluster &C2)
 	{
-		LNodePtr cursor_right = arg_Cluster.__points;
-
-		for (; cursor_right != NULL; cursor_right = cursor_right->next)
-		{
-			if (!(this->contains(cursor_right->point)))
-				add(cursor_right->point);
+		if(__dimensionality != C2.getDimensionality()){
+			throw DimensionalityMismatchEx(__dimensionality,C2.__dimensionality);
+		}
+		for(int i = 0; i < C2.getSize(); ++i){
+			if(!(this->contains(C2[i]))){
+				this->add(C2[i]);
+			}
 		}
 
 		return *this;
 	}
 
-	Cluster &Cluster::operator-=(const Cluster &rhs) {
-		for (int i = 0; i < rhs.getSize(); ++i) {
-			remove(rhs[i]);
+	Cluster &Cluster::operator-=(const Cluster &C2) {
+		for(int i = 0; i < C2.getSize(); ++i){
+			if(this->contains(C2[i])){
+				this->remove(C2[i]);
+			}
 		}
-
 		return *this;
 	}
 	
-	std::ostream &operator<<(std::ostream &out, const Cluster &cluster) {
-		out << std::setprecision(20);
-		for (int i = 0; i < cluster.getSize(); ++i) {
-			out << cluster[i] << std::endl;
-			std::cout << cluster[i] << std::endl;
+	std::ostream &operator<<(std::ostream & out, const Cluster & C1){
+
+        LNodePtr temp = C1.__points;
+        for(int i = 0; i < C1.__size; ++i){
+            out << temp->point << " : " << C1.__id << std::endl;
+            temp = temp->next;
+        }
+        return out;
+    }
+
+	std::istream &operator>>(std::istream & in, Clustering::Cluster& C1) {
+
+		std::string temp;
+		std::getline(in, temp);
+		std::stringstream s;
+		s.str(temp);
+		Clustering::Point *test = new Clustering::Point(C1.__dimensionality);
+		while (!(in.eof())) {
+			try {
+				in >> *test;
+				C1.add(*test);
+			} catch (Clustering::DimensionalityMismatchEx &ex) {
+				std::cerr << "Caught exception: " << ex << std::endl;
+				in.ignore(std::numeric_limits<int>::max(), '\n');
+			}
 		}
 
-		return out;
+		return in;
 	}
 
-	std::istream &operator>>(std::istream &ins, Cluster &c)
-	{
-		std::string value, buf;
-		PointPtr Newp = NULL;
-		while (getline(ins, value))
-		{
-			int pointSize = 0;
-
-			std::stringstream lineStream_count(value);
-
-			std::stringstream lineStream_do(value);
-
-			while (getline(lineStream_count, buf, ','))
-				++pointSize;
-
-			Newp = new Point(pointSize);
-			lineStream_do >> *Newp;
-			c.add(*Newp);
-
-		}
-		return ins;
-	}
-	
 	bool operator==(const Cluster &c, const Cluster &cr)
 	{
 		bool Equal = true;
@@ -431,6 +463,9 @@ namespace Clustering {
 
 	const Cluster operator+(const Cluster &c, const Point &p)
 	{
+		if(c.__dimensionality != p.getDims()){
+			throw DimensionalityMismatchEx(c.__dimensionality,p.getDims());
+		}
 		Cluster sum(c);
 		sum += p;
 		return sum;
@@ -438,6 +473,9 @@ namespace Clustering {
 
 	const Cluster operator-(const Cluster &c, const Point &p)
 	{
+		if(c.__dimensionality != p.getDims()){
+			throw DimensionalityMismatchEx(c.__dimensionality,p.getDims());
+		}
 		Cluster sub(c);
 		sub -= p;
 		return sub;

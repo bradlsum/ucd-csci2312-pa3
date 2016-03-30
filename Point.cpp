@@ -10,7 +10,7 @@
 namespace Clustering {
 
 	unsigned int Point::__idGen = 0;
-	const char Point::POINT_VALUE_DELIM = ',';
+	const char POINT_VALUE_DELIM = ',';
 
 	// Constructor
 	Point::Point(unsigned int dim)
@@ -189,6 +189,7 @@ namespace Clustering {
 
 	const Point operator+(const Point & p1, const Point & p2)
 	{
+
 		Point p0(p1.getDims());
 
 		if (p1.getDims() == p2.getDims()) {
@@ -277,37 +278,38 @@ namespace Clustering {
 		return false;
 	}
 
-	std::ostream & operator<<(std::ostream & os, const Point & p1)
-	{
-		int i = 0;
-		for ( ; i < p1.__dim - 1; ++i)
-			os << p1.__values[i] << ", ";
-		os << p1.__values[i];
+	std::istream &operator>>(std::istream &is, Clustering::Point &p){
+		unsigned int index = 0;
+		double temp;
+
+		while ((is.peek() != '\n') || (is.peek() != '\r')){
+			is >> temp;
+			try{
+				p.setValue(index, temp);
+			}catch(Clustering::OutOfBoundsEx &ex){
+				throw Clustering::DimensionalityMismatchEx(p.__dim,index);
+			}
+
+			if((is.peek() == '\n') || (is.peek() == '\r') || (is.eof())){
+				return is;
+			}
+			is.ignore(100, POINT_VALUE_DELIM);
+			index++;
+		}
+		if(index != p.__dim){
+			throw Clustering::DimensionalityMismatchEx(p.__dim,index);
+		}
+		return is;
 	}
 
-	std::istream & operator>>(std::istream & os, Point & p1)
-	{
-		std::string str;
-
-
-		std::getline(os, str);
-		unsigned int size;
-		size = (unsigned int)std::count(str.begin(), str.end(), p1.POINT_VALUE_DELIM) + 1;
-
-		std::stringstream ss(str);
-
-		if (p1.getDims() != size) {
-			throw DimensionalityMismatchEx(p1.__dim, size);
-		}
-
+	std::ostream &operator<<(std::ostream &out, const Point &P1){
 		int i = 0;
-		while (os) {
-			if (os.peek() == ' ') os.ignore();
-			if (os.peek() == ',') os.ignore();
-			os >> p1.__values[i];
-			++i;
+		for( ; i < P1.getDims()-1; ++i){
+			out << P1.getValue(i);
+			out << POINT_VALUE_DELIM << " ";
 		}
-		// TODO: insert return statement here
-		return os;
+		out << P1.getValue(i);
+
+		return out;
 	}
 }
