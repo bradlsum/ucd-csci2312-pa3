@@ -31,13 +31,13 @@ namespace Clustering {
 
         void __del();
         void __cpy(LNodePtr pts);
-        bool __in(const Point &p) const;
+        //bool __in(const Point &p) const;
 
         // inner class has private access
         class Centroid {
             unsigned int __dimensions;
             Point __p;
-            bool __valid;
+			bool __valid;
             const Cluster &__c;
 
         public:
