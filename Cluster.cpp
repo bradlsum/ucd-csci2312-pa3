@@ -337,6 +337,9 @@ namespace Clustering {
 	}
 
 	bool Cluster::contains(const Point &p) const {
+		if (__dimensionality != p.getDims()) {
+			throw DimensionalityMismatchEx(__dimensionality, p.getDims());
+		}
 		LNodePtr next = __points;
 
 		while (next != nullptr) {
@@ -435,6 +438,9 @@ namespace Clustering {
 		bool Equal = true;
 		LNodePtr Cleft = c.__points;
 		LNodePtr Cright = cr.__points;
+
+		if (c.__dimensionality != cr.__dimensionality)
+			throw DimensionalityMismatchEx(c.__dimensionality, cr.__dimensionality);
 
 		while (Equal && Cleft != NULL && Cright != NULL)
 		{

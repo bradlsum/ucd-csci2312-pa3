@@ -11,19 +11,30 @@ namespace Clustering {
 
 	unsigned int Point::__idGen = 0;
 	const char POINT_VALUE_DELIM = ',';
+	const char Point::POINT_VALUE_DELIM = ',';
 
 	// Constructor
 	Point::Point(unsigned int dim)
 	{
+		if(dim <= 0){
+			throw ZeroDimensionsEx();
+		}
 		__id = __idGen;
 		__idGen++;
-		__dim = dim;
 
-		__values = new double[__dim];
+		if (dim != 0) {
+			__dim = dim;
+			__values = new double[__dim];
 
-		for (int i = 0; i < __dim;++i) {
-			__values[i] = 0.0;
+			for (int i = 0; i < __dim; ++i) {
+				__values[i] = 0.0;
+			}
 		}
+		else {
+			__dim = 0;
+			__values = 0;
+		}
+
 	}
 
 	// Two varriable constructor
@@ -167,28 +178,38 @@ namespace Clustering {
 		return __values[index];
 	}
 
-	Point &operator+=(Point &arg_Point_left, const Point &arg_Point_right)
+	Point &operator+=(Point &p1, const Point &p2)
 	{
-		if (arg_Point_left.__dim == arg_Point_right.__dim)
-		for (int index = 0; index < arg_Point_left.__dim; ++index)
-		arg_Point_left.__values[index] += arg_Point_right.__values[index];
+		if(p1.__dim != p2.__dim){
+			throw DimensionalityMismatchEx(p1.__dim,p2.__dim);
+		}
+		if (p1.__dim == p2.__dim)
+		for (int index = 0; index < p1.__dim; ++index)
+		p1.__values[index] += p2.__values[index];
 
-		return arg_Point_left;
+		return p1;
 	}
 
 
-	Point &operator-=(Point &arg_Point_left, const Point &arg_Point_right)
+	Point &operator-=(Point &p1, const Point &p2)
 	{
-		if (arg_Point_left.__dim == arg_Point_right.__dim)
-		for (int index = 0; index < arg_Point_left.__dim; ++index)
-		arg_Point_left.__values[index] -= arg_Point_right.__values[index];
+		if(p1.__dim != p2.__dim){
+			throw DimensionalityMismatchEx(p1.__dim,p2.__dim);
+		}
+		if (p1.__dim == p2.__dim)
+		for (int index = 0; index < p1.__dim; ++index)
+		p1.__values[index] -= p2.__values[index];
 
-		return arg_Point_left;
+		return p1;
 	}
 
 
 	const Point operator+(const Point & p1, const Point & p2)
 	{
+
+		if(p1.__dim != p2.__dim){
+			throw DimensionalityMismatchEx(p1.__dim,p2.__dim);
+		}
 
 		Point p0(p1.getDims());
 
@@ -203,6 +224,10 @@ namespace Clustering {
 
 	const Point operator-(const Point & p1, const Point & p2)
 	{
+		if(p1.__dim != p2.__dim){
+			throw DimensionalityMismatchEx(p1.__dim,p2.__dim);
+		}
+
 		Point p0(p1.getDims());
 
 		if (p1.getDims() == p2.getDims()) {
@@ -216,6 +241,9 @@ namespace Clustering {
 
 	bool operator==(const Point & p1, const Point & p2)
 	{
+		if(p1.__dim != p2.__dim){
+			throw DimensionalityMismatchEx(p1.__dim,p2.__dim);
+		}
 		if (p1.__id != p2.__id) return false;
 		if (p1.__dim == p2.__dim) {
 			for (int i = 0; i < p1.__dim;++i) {
@@ -240,6 +268,9 @@ namespace Clustering {
 
 	bool operator<(const Point & p1, const Point & p2)
 	{
+		if(p1.__dim != p2.__dim){
+			throw DimensionalityMismatchEx(p1.__dim,p2.__dim);
+		}
 		if (p1.__dim == p2.__dim) {
 			for (int i = 0; i < p1.__dim;++i) {
 				if (p1.__values[i] < p2.__values[i]) return true;
@@ -250,6 +281,9 @@ namespace Clustering {
 
 	bool operator>(const Point & p1, const Point & p2)
 	{
+		if(p1.__dim != p2.__dim){
+			throw DimensionalityMismatchEx(p1.__dim,p2.__dim);
+		}
 		if (p1.__dim == p2.__dim) {
 			for (int i = 0; i < p1.__dim;++i) {
 				if (p1.__values[i] > p2.__values[i]) return true;
@@ -258,58 +292,64 @@ namespace Clustering {
 		return false;
 	}
 
-	bool operator<=(const Point & p1, const Point & p2)
-	{
-		if (p1.__dim == p2.__dim) {
-			for (int i = 0; i < p1.__dim;++i) {
-				if (p1.__values[i] <= p2.__values[i]) return true;
-			}
+	bool operator<=(const Point & P1, const Point &P2){
+        if (P1<P2) {
+            return true;
+        }
+        if (P1>P2) {
+            return false;
+        }
+        return true;
+    }
+
+    bool operator>=(const Point & P1, const Point &P2){
+        if (P1>P2) {
+            return true;
+        }
+        if (P1<P2) {
+            return false;
+        }
+        return true;
+    }
+
+	std::istream &operator>>(std::istream &in, Point &p) {
+		//std::stringstream ss;
+		std::string str;
+
+
+		std::getline(in, str);
+		unsigned int size = (unsigned int)std::count(str.begin(), str.end(), p.POINT_VALUE_DELIM) + 1;
+
+		std::stringstream ss(str);
+
+
+		if (p.getDims() != size) {
+			throw DimensionalityMismatchEx(p.__dim, size);
 		}
-		return false;
+
+		int index = 0;  // current dimension index of point
+
+		while (!ss.eof()) {
+			std::string svalue;
+			getline(ss, svalue, ',');
+
+			std::stringstream streamvalue(svalue);
+
+			streamvalue >> p.__values[index];
+
+			++index;
+		}
+
+		return in;
 	}
 
-	bool operator>=(const Point & p1, const Point & p2)
-	{
-		if (p1.__dim == p2.__dim) {
-			for (int i = 0; i < p1.__dim;++i) {
-				if (p1.__values[i] >= p2.__values[i]) return true;
-			}
-		}
-		return false;
-	}
-
-	std::istream &operator>>(std::istream &is, Clustering::Point &p){
-		unsigned int index = 0;
-		double temp;
-
-		while ((is.peek() != '\n') || (is.peek() != '\r')){
-			is >> temp;
-			try{
-				p.setValue(index, temp);
-			}catch(Clustering::OutOfBoundsEx &ex){
-				throw Clustering::DimensionalityMismatchEx(p.__dim,index);
-			}
-
-			if((is.peek() == '\n') || (is.peek() == '\r') || (is.eof())){
-				return is;
-			}
-			is.ignore(100, POINT_VALUE_DELIM);
-			index++;
-		}
-		if(index != p.__dim){
-			throw Clustering::DimensionalityMismatchEx(p.__dim,index);
-		}
-		return is;
-	}
-
-	std::ostream &operator<<(std::ostream &out, const Point &P1){
+	std::ostream &operator<<(std::ostream &out, const Point &p){
 		int i = 0;
-		for( ; i < P1.getDims()-1; ++i){
-			out << P1.getValue(i);
+		for( ; i < p.getDims() - 1; ++i){
+			out << p.getValue(i);
 			out << POINT_VALUE_DELIM << " ";
 		}
-		out << P1.getValue(i);
-
+		out << p.getValue(i);
 		return out;
 	}
 }
