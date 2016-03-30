@@ -79,7 +79,7 @@ namespace Clustering {
         // Add/remove: They allow calling c1.add(c2.remove(p));
         void add(const Point &);
         const Point &remove(const Point &);
-        bool contains(const Point &p) const;
+        bool contains(const Point &point) const;
 
         // Centroid functions
         void pickCentroids(unsigned int k, Point **pointArray); // pick k initial centroids
