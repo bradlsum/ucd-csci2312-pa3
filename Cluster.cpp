@@ -30,7 +30,7 @@ namespace Clustering {
 	}*/
 
 	// Centroid class
-	Cluster::Centroid::Centroid(unsigned int d, const Cluster &c) : __c(c), __p(d) { // needs ref to cluster
+	Cluster::Centroid::Centroid(unsigned int d, const Cluster &c) : __c(c), __p(d) {
 		__dimensions = d;
 		if (__c.__size == 0) {
 			__valid = false;
@@ -93,10 +93,9 @@ namespace Clustering {
 	}
 
 	void Cluster::Centroid::toInfinity(){
-		for(int i = 0; i < __p.getDims(); ++i){
+		for (unsigned int i = 0; i < __dimensions; ++i) {
 			__p[i] = std::numeric_limits<double>::max();
 		}
-		setValid(true);
 	}
 
 	Cluster::Cluster(unsigned int d) : centroid(d, *this) {
@@ -179,22 +178,29 @@ namespace Clustering {
 	{
 		if(this != &entry)
 		{
+
 			__dimensionality= entry.__dimensionality;
 			__size = entry.__size;
-			__cpy(entry.__points); // TODO uncomment - just testing the build!!!
+			__cpy(entry.__points);
 			__id = entry.__id;
+
+
 			centroid.compute();
 		}
 	}
 
 	void Cluster::__del(){
 		while(__points != nullptr){
+
 			LNodePtr temp = __points->next;
 			delete __points;
 			__points = temp;
+
 			__size--;
 		}
-		assert(__size==0);
+
+
+		assert(__size == 0);
 	}
 
 	Cluster &Cluster::operator=(const Cluster &C) {
@@ -202,10 +208,12 @@ namespace Clustering {
 			throw DimensionalityMismatchEx(this->getDimensionality(),C.getDimensionality());
 		{
 			__del();
+
 			__dimensionality= C.__dimensionality;
 			__size = C.__size;
 			__cpy(C.__points);
 			__id = C.__id;
+
 			centroid.compute();
 		}
 		return *this;
@@ -232,45 +240,59 @@ namespace Clustering {
 		return __id;
 	}
 
-	void Cluster::add(const Point &point) {
-		if (__dimensionality != point.getDims())
-			throw DimensionalityMismatchEx(__dimensionality, point.getDims());
+	void Cluster::add(const Point &p) {
+		if (__dimensionality != p.getDims())
+			throw DimensionalityMismatchEx(__dimensionality, p.getDims());
 
+		// Empty list, adding first
 		if (__size == 0) {
 			++__size;
-			__points = new LNode(point, nullptr);
+			__points = new LNode(p, nullptr);
 			centroid.setValid(false);
 		}
-		else {
-			if (contains(point))
-				return;
+		else { // Non-empty list
+			// Make sure point does not already exist
+			if (contains(p))
+				return; // Point already exists, exit
 
 			centroid.setValid(false);
-			LNodePtr nextpoint;
-			LNodePtr prevpoint;
+			// next and previous pointers
+			LNodePtr next;
+			LNodePtr prev;
 
-			nextpoint = __points;
-			prevpoint = nullptr;
+			next = __points;    // Start of list
+			prev = nullptr;
 
-			while (nextpoint != nullptr) {
-				if (point < nextpoint->point) {
-					if (prevpoint == nullptr) {
-						__points = new LNode(point, nextpoint);
+			// find insert position
+			while (next != nullptr) {
+				if (p < next->point) {
+					// Insert here
+					if (prev == nullptr) {
+						// First element in list
+						__points = new LNode(p, next);
 
 						++__size;
 
-						return;
+						return;  // Add complete, exit
 					}
 					else {
-						prevpoint->next = new LNode(point, nextpoint);
+						// Not first element in list
+						prev->next = new LNode(p, next);
+
 						++__size;
-						return;
+
+						return;  // Add complete, exit
 					}
 				}
-				prevpoint = nextpoint;
-				nextpoint = nextpoint->next;
+
+				prev = next;
+				next = next->next;
+
 			}
-			prevpoint->next = new LNode(point, nullptr);
+
+			// No insert found, add to end
+			prev->next = new LNode(p, nullptr);
+
 			++__size;
 		}
 	}
@@ -325,17 +347,19 @@ namespace Clustering {
 		return false;
 	}
 
-	const Point & Cluster::operator[](unsigned int index) const
-		{
-			if(__size == 0)
-				throw EmptyClusterEx();// zero member on cluster exception
-			if(index > __size-1)
-				throw OutOfBoundsEx(__size,index); //out of bound exception
-			LNodePtr current = __points;
-			for (int i = 0; i < index; ++i) {
-				current = current->next;
-			}
-			return current->point;
+	const Point &Cluster::operator[](unsigned int index) const {
+		if (__size == 0)
+			throw EmptyClusterEx();
+
+		if (index >= __size)
+			throw OutOfBoundsEx(__size, index);
+
+		LNodePtr cursor = __points;
+
+		for (int i = 0; i < index; ++i) {
+			cursor = cursor->next;
+		}
+		return cursor->point;
 	}
 
 	Cluster &Cluster::operator+=(const Point &P1) {

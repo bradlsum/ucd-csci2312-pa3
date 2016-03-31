@@ -138,12 +138,13 @@ namespace Clustering {
 
 	std::ostream & operator<<(std::ostream & os, const KMeans & kmeans)
 	{
+
 		for (unsigned int i = 0; i < kmeans.__k; ++i) {
-			//std::cout << "Cluster ID: " << kmeans.__clusters[i]->getId() << std::endl;
-			//os << *(kmeans.__clusters[i]);
 			os << kmeans[i];
 		}
+
 		return os;
+
 	}
 
 }
